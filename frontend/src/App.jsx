@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import CredentialForm from './components/CredentialForm';
-import CredentialList from './components/CredentialList';
+import CredentialTable from './components/CredentialTable';
+import ScopeSelector from './components/ScopeSelector';
 import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
 import Sidebar from './components/Sidebar';
@@ -15,20 +16,42 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const [currentView, setCurrentView] = useState('list'); // 'list', 'create', 'admin'
+  const [scope, setScope] = useState(null); // null (selector), { type: 'personal' }, { type: 'org', id: X }
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile toggle
 
   useEffect(() => {
-    // Cargar credenciales al inicio solo si vamos a listar
-    if (currentView === 'list') fetchCredentials();
-  }, [currentView]);
+    // Cargar credenciales SOLO si tenemos un scope definido y estamos en vista lista
+    if (currentView === 'list' && scope) {
+      fetchCredentials();
+    }
+  }, [currentView, scope]); // Recargar si cambia la vista o el scope
 
   const fetchCredentials = async () => {
     setLoading(true);
-    const data = await getCredentials();
-    setCredentials(data);
+    try {
+      const data = await getCredentials(scope);
+      setCredentials(data);
+    } catch (error) {
+      console.error(error);
+    }
     setLoading(false);
+  };
+
+  const handleScopeSelect = (selectedScope) => {
+    setScope(selectedScope);
+    // fetchCredentials se disparará por el useEffect
+  };
+
+  const handleChangeView = (viewId) => {
+    setCurrentView(viewId);
+    if (viewId === 'list') {
+      // Si vuelve a "Mis Credenciales", tal vez quiera ver el selector de nuevo?
+      // O mantener el último scope. 
+      // Por usabilidad: Si hace clic en "Mis Credenciales" en el menú, reseteamos a selector.
+      setScope(null);
+    }
   };
 
   const handleAddCredential = async (newCredential) => {
@@ -66,7 +89,7 @@ const Dashboard = () => {
       {/* Sidebar */}
       <Sidebar
         currentView={currentView}
-        onChangeView={setCurrentView}
+        onChangeView={handleChangeView}
         user={user}
         onLogout={logout}
         isMobileOpen={sidebarOpen}
@@ -86,17 +109,38 @@ const Dashboard = () => {
           {currentView === 'list' && (
             <>
               <div className="view-header">
-                <h2>Mis Credenciales</h2>
-                <div className="stats-badge">
-                  Uso: {credentials.filter(c => c.owner_id === user.id).length} / {user.limite_credenciales === -1 ? '∞' : user.limite_credenciales}
-                </div>
+                {/* Si no hay scope, título genérico. Si hay, título del scope + botón volver */}
+                {!scope ? (
+                  <h2>Mis Espacios</h2>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button className="btn-icon-back" onClick={() => setScope(null)}>⬅ Volver</button>
+                    <div>
+                      <h2 style={{ margin: 0 }}>{scope.type === 'personal' ? 'Mis Credenciales' : scope.name}</h2>
+                      <span className="subtitle-scope">{scope.type === 'personal' ? 'Privado' : 'Organización'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {scope && (
+                  <div className="stats-badge">
+                    {credentials.length} Registros
+                  </div>
+                )}
               </div>
+
               {loading ? <p>Cargando...</p> : (
-                <CredentialList
-                  credentials={credentials}
-                  onDelete={handleDeleteCredential}
-                  currentUserId={user.id}
-                />
+                <>
+                  {!scope ? (
+                    <ScopeSelector onSelectScope={handleScopeSelect} user={user} />
+                  ) : (
+                    <CredentialTable
+                      credentials={credentials}
+                      onDelete={handleDeleteCredential}
+                      currentUser={user}
+                    />
+                  )}
+                </>
               )}
             </>
           )}
@@ -136,6 +180,9 @@ const Dashboard = () => {
                 margin-bottom: 2rem;
             }
             .view-header h2 { margin: 0; font-size: 2rem; color: var(--text-primary); }
+            .subtitle-scope { font-size: 0.9rem; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; }
+            .btn-icon-back { background: none; border: 1px solid rgba(255,255,255,0.2); color: white; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+            .btn-icon-back:hover { background: rgba(255,255,255,0.1); }
             .stats-badge {
                  background: rgba(255,255,255,0.1); 
                  padding: 0.5rem 1rem; 

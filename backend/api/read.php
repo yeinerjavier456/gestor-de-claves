@@ -1,67 +1,76 @@
 <?php
 // backend/api/read.php
-// Leer credenciales con filtros de visibilidad
-
-include_once '../config.php';
 include_once 'cors.php';
+include_once '../config.php';
+require 'auth_check.php';
 
-session_start();
+header('Content-Type: application/json');
 
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(array("message" => "No autenticado."));
-    exit();
-}
-
+// Parámetros de filtro
+$scope = isset($_GET['scope']) ? $_GET['scope'] : 'personal'; // 'personal' o 'org'
+$org_id = isset($_GET['org_id']) ? intval($_GET['org_id']) : 0;
 $user_id = $_SESSION['user_id'];
-$user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'usuario';
-$user_org = isset($_SESSION['user_org']) ? $_SESSION['user_org'] : NULL;
+$user_role = $_SESSION['user_role'];
 
 try {
-    $query = "SELECT c.*, c.id_usuario as owner_id FROM credenciales c WHERE 1=1";
+    $sql = "SELECT c.*, u.nombre_completo as propietario 
+            FROM credenciales c 
+            LEFT JOIN usuarios u ON c.id_usuario = u.id 
+            WHERE 1=1";
 
-    // Si NO es superadmin, aplicar filtros
-    if ($user_role !== 'superadmin') {
-        if ($user_org) {
-            // Usuario con org: ver propias O compartidas con su org
-            $query .= " AND (c.id_usuario = :uid OR c.id_organizacion = :org)";
+    if ($user_role === 'superadmin') {
+        // Superadmin ve todo si no filtra, o puede filtrar por org
+        if ($scope === 'personal') {
+            $sql .= " AND c.id_usuario = :uid";
+        } elseif ($scope === 'org' && $org_id > 0) {
+            $sql .= " AND c.id_organizacion = :oid";
+        }
+    } else {
+        // Usuario Normal
+        if ($scope === 'personal') {
+            // Solo sus credenciales personales (que no estén asignadas a una org, o explícitamente suyas)
+            // Asumiremos personales = creadas por él
+            $sql .= " AND c.id_usuario = :uid";
+        } elseif ($scope === 'org' && $org_id > 0) {
+            // Verificar que el usuario pertenezca a esa organización
+            $check_sql = "SELECT 1 FROM usuarios_organizaciones WHERE id_usuario = :uid AND id_organizacion = :oid";
+            $check_stmt = $conn->prepare($check_sql);
+            $check_stmt->bindParam(':uid', $user_id);
+            $check_stmt->bindParam(':oid', $org_id);
+            $check_stmt->execute();
+
+            if ($check_stmt->rowCount() > 0) {
+                // Pertenece, mostrar credenciales de la org
+                $sql .= " AND c.id_organizacion = :oid";
+            } else {
+                // No pertenece, devolver vacío o error (vacío por seguridad)
+                echo json_encode([]);
+                exit;
+            }
         } else {
-            // Usuario sin org: solo las propias
-            $query .= " AND c.id_usuario = :uid";
+            // Default fallback: Solo personales
+            $sql .= " AND c.id_usuario = :uid";
         }
     }
-    // Nota: Superadmin ve TODO, por lo que no agregamos WHERE extra si es superadmin
 
-    $query .= " ORDER BY c.fecha_creacion DESC";
+    $sql .= " ORDER BY c.plataforma ASC";
 
-    $stmt = $conn->prepare($query);
+    $stmt = $conn->prepare($sql);
 
-    if ($user_role !== 'superadmin') {
-        $stmt->bindParam(":uid", $user_id);
-        if ($user_org) {
-            $stmt->bindParam(":org", $user_org);
-        }
+    if (strpos($sql, ':uid') !== false) {
+        $stmt->bindParam(':uid', $user_id);
+    }
+    if (strpos($sql, ':oid') !== false) {
+        $stmt->bindParam(':oid', $org_id);
     }
 
     $stmt->execute();
+    $credentials = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $num = $stmt->rowCount();
-    $creds_arr = array();
-    $creds_arr["records"] = array();
-
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        // Decodificar caracteres especiales por si acaso
-        $row['plataforma'] = html_entity_decode($row['plataforma']);
-        $row['usuario'] = html_entity_decode($row['usuario']);
-        // Los nuevos campos vendrán automáticamente en $row por el SELECT c.*
-        array_push($creds_arr["records"], $row);
-    }
-
-    http_response_code(200);
-    echo json_encode($creds_arr);
+    echo json_encode($credentials);
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(array("message" => "Error al leer credenciales."));
+    echo json_encode(["error" => $e->getMessage()]);
 }
 ?>

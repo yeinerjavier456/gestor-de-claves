@@ -1,167 +1,143 @@
 // frontend/src/services/api.js
-
 const API_URL = '/backend/api';
 
-/* --- CREDENCIALES --- */
-
-export const getCredentials = async () => {
+/* AUTH */
+export const login = async (email, password) => {
     try {
-        const response = await fetch(`${API_URL}/read.php`);
-        if (!response.ok) throw new Error('Error al obtener credenciales');
-        const data = await response.json();
-        return data.records || [];
-    } catch (error) {
-        console.error("Error getCredentials:", error);
-        return [];
+        const response = await fetch(`${API_URL}/auth/login.php`, {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+        return await response.json();
+    } catch (e) {
+        return { success: false, message: 'Error de conexión' };
     }
 };
 
-export const createCredential = async (credential) => {
-    try {
-        const response = await fetch(`${API_URL}/create.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(credential),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Error al crear credencial');
-        return data;
-    } catch (error) {
-        throw error;
+export const logout = async () => {
+    await fetch(`${API_URL}/auth/logout.php`);
+};
+
+export const checkAuth = async () => {
+    const res = await fetch(`${API_URL}/auth/check.php`);
+    return await res.json();
+};
+
+/* CREDENTIALS */
+// scopeObj opcional: { type: 'personal' } o { type: 'org', id: 123 }
+export const getCredentials = async (scopeObj = null) => {
+    let url = `${API_URL}/read.php`;
+    if (scopeObj) {
+        const params = new URLSearchParams();
+        if (scopeObj.type === 'personal') {
+            params.append('scope', 'personal');
+        } else if (scopeObj.type === 'org') {
+            params.append('scope', 'org');
+            params.append('org_id', scopeObj.id);
+        }
+        url += `?${params.toString()}`;
     }
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Error al cargar credenciales');
+    return await res.json();
+};
+
+export const createCredential = async (data) => {
+    const res = await fetch(`${API_URL}/create.php`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
 export const deleteCredential = async (id) => {
-    try {
-        const response = await fetch(`${API_URL}/delete.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-        });
-        if (!response.ok) throw new Error('Error al eliminar credencial');
-        return await response.json();
-    } catch (error) {
-        throw error;
-    }
+    const res = await fetch(`${API_URL}/delete.php`, {
+        method: 'DELETE',
+        body: JSON.stringify({ id }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
-/* --- USUARIOS (ADMIN) --- */
+/* USERS */
+export const getUserOrgs = async () => {
+    const res = await fetch(`${API_URL}/users/get_orgs.php`);
+    if (!res.ok) throw new Error('Error buscando organizaciones');
+    return await res.json();
+};
 
 export const getUsers = async () => {
-    try {
-        const response = await fetch(`${API_URL}/users/list.php`);
-        if (!response.ok) throw new Error('Error al listar usuarios');
-        const data = await response.json();
-        return data.records || [];
-    } catch (error) {
-        return [];
-    }
+    const res = await fetch(`${API_URL}/users/list.php`);
+    if (!res.ok) throw new Error('Error al cargar usuarios');
+    return await res.json();
 };
 
-export const createUser = async (user) => {
-    try {
-        const response = await fetch(`${API_URL}/users/create.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(user),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Error al crear');
-        return data;
-    } catch (error) {
-        throw error;
-    }
+export const createUser = async (userData) => {
+    const res = await fetch(`${API_URL}/users/create.php`, {
+        method: 'POST',
+        body: JSON.stringify(userData)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
-export const updateUser = async (user) => {
-    try {
-        const response = await fetch(`${API_URL}/users/update.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(user),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Error al actualizar');
-        return data;
-    } catch (error) {
-        throw error;
-    }
+export const updateUser = async (userData) => {
+    const res = await fetch(`${API_URL}/users/update.php`, {
+        method: 'PUT',
+        body: JSON.stringify(userData)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
 export const deleteUser = async (id) => {
-    try {
-        const response = await fetch(`${API_URL}/users/delete.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Error al eliminar');
-        return data;
-    } catch (error) {
-        throw error;
-    }
+    const res = await fetch(`${API_URL}/users/delete.php`, {
+        method: 'DELETE',
+        body: JSON.stringify({ id })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
-/* --- ORGANIZACIONES (ADMIN) --- */
-
+/* ORGANIZATIONS */
 export const getOrganizations = async () => {
-    try {
-        const response = await fetch(`${API_URL}/organizations/manage.php`);
-        if (!response.ok) throw new Error('Error al listar organizaciones');
-        const data = await response.json();
-        return data.records || [];
-    } catch (error) {
-        return [];
-    }
+    const res = await fetch(`${API_URL}/organizations/list.php`);
+    if (!res.ok) throw new Error('Error al cargar organizaciones');
+    return await res.json();
 };
 
-export const createOrganization = async (org) => {
-    try {
-        const response = await fetch(`${API_URL}/organizations/manage.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(org),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
-        return data;
-    } catch (error) {
-        throw error;
-    }
+export const createOrganization = async (orgData) => {
+    const res = await fetch(`${API_URL}/organizations/create.php`, {
+        method: 'POST',
+        body: JSON.stringify(orgData)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
-export const updateOrganization = async (org) => {
-    try {
-        // Usamos POST pero el backend espera el método HTTP o un campo hidden?
-        // manage.php usa $_SERVER['REQUEST_METHOD'].
-        // Fetch API 'PUT' funciona si el servidor lo acepta.
-        // Pero en PHP puro a veces PUT payload no se lee con file_get_contents si no es x-www-form-urlencoded o raw.
-        // Hemos programado manage.php para leer php://input, asi que PUT JSON deberia funcionar.
-        const response = await fetch(`${API_URL}/organizations/manage.php`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(org),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
-        return data;
-    } catch (error) {
-        throw error;
-    }
+export const updateOrganization = async (orgData) => {
+    const res = await fetch(`${API_URL}/organizations/manage.php`, {
+        method: 'PUT',
+        body: JSON.stringify(orgData)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
 
 export const deleteOrganization = async (id) => {
-    try {
-        const response = await fetch(`${API_URL}/organizations/manage.php`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
-        return data;
-    } catch (error) {
-        throw error;
-    }
+    const res = await fetch(`${API_URL}/organizations/manage.php`, {
+        method: 'DELETE',
+        body: JSON.stringify({ id })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
 };
