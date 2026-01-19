@@ -1,6 +1,7 @@
 // frontend/src/components/AdminPanel.jsx
 import React, { useState, useEffect } from 'react';
 import { getUsers, createUser, updateUser, deleteUser, getOrganizations, createOrganization, updateOrganization, deleteOrganization } from '../services/api';
+import Swal from 'sweetalert2';
 
 const AdminPanel = () => {
     const [activeTab, setActiveTab] = useState('users'); // 'users' or 'orgs'
@@ -34,15 +35,15 @@ const AdminPanel = () => {
         try {
             if (isEditingUser) {
                 await updateUser(userForm);
-                alert('Usuario actualizado');
+                Swal.fire('Actualizado', 'Usuario actualizado correctamente', 'success');
             } else {
                 await createUser(userForm);
-                alert('Usuario creado');
+                Swal.fire('Creado', 'Usuario creado correctamente', 'success');
             }
             resetUserForm();
             fetchData();
         } catch (err) {
-            alert(err.message);
+            Swal.fire('Error', err.message, 'error');
         }
     };
 
@@ -62,11 +63,21 @@ const AdminPanel = () => {
     };
 
     const handleDeleteUser = async (id) => {
-        if (window.confirm('¿Seguro que deseas eliminar este usuario? Sus credenciales se borrarán.')) {
+        const result = await Swal.fire({
+            title: '¿Eliminar usuario?',
+            text: "Se borrarán todas sus credenciales.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar'
+        });
+
+        if (result.isConfirmed) {
             try {
                 await deleteUser(id);
+                Swal.fire('Eliminado', 'El usuario ha sido eliminado.', 'success');
                 fetchData();
-            } catch (err) { alert(err.message); }
+            } catch (err) { Swal.fire('Error', err.message, 'error'); }
         }
     };
 
@@ -82,15 +93,15 @@ const AdminPanel = () => {
         try {
             if (isEditingOrg) {
                 await updateOrganization(orgForm);
-                alert('Organización actualizada');
+                Swal.fire('Actualizado', 'Organización actualizada', 'success');
             } else {
                 await createOrganization(orgForm);
-                alert('Organización creada');
+                Swal.fire('Creado', 'Organización creada', 'success');
             }
             resetOrgForm();
             fetchData();
         } catch (err) {
-            alert(err.message);
+            Swal.fire('Error', err.message, 'error');
         }
     };
 
@@ -100,11 +111,21 @@ const AdminPanel = () => {
     };
 
     const handleDeleteOrg = async (id) => {
-        if (window.confirm('¿Eliminar organización? Los usuarios asignados quedarán sin organización.')) {
+        const result = await Swal.fire({
+            title: '¿Eliminar Organización?',
+            text: "Los usuarios asignados quedarán sin organización.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar'
+        });
+
+        if (result.isConfirmed) {
             try {
                 await deleteOrganization(id);
+                Swal.fire('Eliminado', 'Organización eliminada.', 'success');
                 fetchData();
-            } catch (err) { alert(err.message); }
+            } catch (err) { Swal.fire('Error', err.message, 'error'); }
         }
     };
 

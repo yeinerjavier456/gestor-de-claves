@@ -1,5 +1,6 @@
 // frontend/src/components/Sidebar.jsx
 import React from 'react';
+import Swal from 'sweetalert2';
 
 const Sidebar = ({ currentView, onChangeView, user, onLogout, isMobileOpen, toggleMobile }) => {
     const menuItems = [
@@ -45,7 +46,19 @@ const Sidebar = ({ currentView, onChangeView, user, onLogout, isMobileOpen, togg
                 </nav>
 
                 <div className="sidebar-footer">
-                    <button className="nav-item logout" onClick={onLogout}>
+                    <button className="nav-item logout" onClick={() => {
+                        Swal.fire({
+                            title: '¿Cerrar Sesión?',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, salir',
+                            cancelButtonText: 'Cancelar'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                onLogout();
+                            }
+                        });
+                    }}>
                         <span className="icon">🚪</span>
                         <span className="label">Cerrar Sesión</span>
                     </button>

@@ -1,5 +1,5 @@
-// frontend/src/App.jsx
 import React, { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import CredentialForm from './components/CredentialForm';
 import CredentialList from './components/CredentialList';
 import LoginPage from './components/LoginPage';
@@ -34,10 +34,20 @@ const Dashboard = () => {
   const handleAddCredential = async (newCredential) => {
     try {
       await createCredential(newCredential);
-      alert('Credencial guardada correctamente');
+      Swal.fire({
+        icon: 'success',
+        title: 'Guardado',
+        text: 'Credencial guardada correctamente',
+        timer: 1500,
+        showConfirmButton: false
+      });
       setCurrentView('list'); // Volver a la lista después de crear
     } catch (error) {
-      alert("Error al crear la credencial: " + (error.message || "Desconocido"));
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: "Error al crear la credencial: " + (error.message || "Desconocido")
+      });
     }
   };
 
@@ -45,8 +55,9 @@ const Dashboard = () => {
     try {
       await deleteCredential(id);
       setCredentials(credentials.filter(c => c.id !== id));
+      Swal.fire('Eliminado', 'La credencial ha sido eliminada.', 'success');
     } catch (error) {
-      alert("Error al eliminar: " + (error.message || "No autorizado"));
+      Swal.fire('Error', "Error al eliminar: " + (error.message || "No autorizado"), 'error');
     }
   };
 

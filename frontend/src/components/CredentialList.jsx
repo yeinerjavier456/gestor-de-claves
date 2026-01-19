@@ -1,12 +1,23 @@
 // frontend/src/components/CredentialList.jsx
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 
 const CredentialCard = ({ cred, isOwner, onDelete }) => {
   const [showDetails, setShowDetails] = useState(false);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    alert('Copiado al portapapeles');
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true
+    });
+    Toast.fire({
+      icon: 'success',
+      title: 'Copiado al portapapeles'
+    });
   };
 
   const hasExtraDetails = cred.ip_servidor || cred.ruta_almacenamiento || cred.notas;
@@ -117,7 +128,20 @@ const CredentialList = ({ credentials, onDelete, currentUserId }) => {
             cred={cred}
             isOwner={cred.owner_id == currentUserId}
             onDelete={() => {
-              if (window.confirm('¿Seguro que deseas eliminar?')) onDelete(cred.id);
+              Swal.fire({
+                title: '¿Estás seguro?',
+                text: "No podrás revertir esto",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  onDelete(cred.id);
+                }
+              });
             }}
           />
         ))
