@@ -1,72 +1,81 @@
 <?php
 // backend/api/organizations/manage.php
-
-include_once '../../config.php';
 include_once '../cors.php';
-include_once '../auth/admin_check.php';
+include_once '../../config.php';
+require '../auth_check.php';
+
+header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $data = json_decode(file_get_contents("php://input"));
+$user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['user_role'];
+
+if (!isset($data->id)) {
+    http_response_code(400);
+    echo json_encode(["success" => false, "message" => "ID requerido"]);
+    exit;
+}
 
 try {
-    if ($method == 'GET') {
-        $query = "SELECT * FROM organizaciones ORDER BY id DESC";
+    // Verificar propiedad
+    // Buscamos quién es el creador
+    $stmtCheck = $conn->prepare("SELECT id_creador FROM organizaciones WHERE id = :id");
+    $stmtCheck->bindParam(':id', $data->id);
+    $stmtCheck->execute();
+
+    if ($stmtCheck->rowCount() === 0) {
+        echo json_encode(["success" => false, "message" => "Organización no encontrada"]);
+        exit;
+    }
+
+    $creator_id = $stmtCheck->fetchColumn();
+
+    // Validar Permisos: SuperAdmin O Creador
+    if ($user_role !== 'superadmin' && $creator_id != $user_id) {
+        http_response_code(403);
+        echo json_encode(["success" => false, "message" => "No tienes permiso para gestionar esta organización"]);
+        exit;
+    }
+
+    if ($method === 'PUT') {
+        // Actualizar
+        $query = "UPDATE organizaciones SET nombre = :nombre, descripcion = :desc WHERE id = :id";
         $stmt = $conn->prepare($query);
-        $stmt->execute();
-        $orgs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(array("records" => $orgs));
 
-    } elseif ($method == 'POST') {
-        if (!empty($data->nombre)) {
-            $query = "INSERT INTO organizaciones SET nombre=:nombre, descripcion=:desc";
-            $stmt = $conn->prepare($query);
-            $nombre = htmlspecialchars(strip_tags($data->nombre));
-            $desc = !empty($data->descripcion) ? htmlspecialchars(strip_tags($data->descripcion)) : '';
-            $stmt->bindParam(":nombre", $nombre);
-            $stmt->bindParam(":desc", $desc);
-            $stmt->execute();
-            echo json_encode(array("message" => "Creada."));
+        $desc = isset($data->descripcion) ? $data->descripcion : '';
+
+        $stmt->bindParam(':nombre', $data->nombre);
+        $stmt->bindParam(':desc', $desc);
+        $stmt->bindParam(':id', $data->id);
+
+        if ($stmt->execute()) {
+            echo json_encode(["success" => true, "message" => "Organización actualizada"]);
+        } else {
+            throw new Exception("Error al actualizar");
         }
 
-    } elseif ($method == 'PUT') {
-        if (!empty($data->id) && !empty($data->nombre)) {
-            $query = "UPDATE organizaciones SET nombre=:nombre, descripcion=:desc WHERE id=:id";
-            $stmt = $conn->prepare($query);
-            $nombre = htmlspecialchars(strip_tags($data->nombre));
-            $desc = !empty($data->descripcion) ? htmlspecialchars(strip_tags($data->descripcion)) : '';
-            $stmt->bindParam(":id", $data->id);
-            $stmt->bindParam(":nombre", $nombre);
-            $stmt->bindParam(":desc", $desc);
-            $stmt->execute();
-            echo json_encode(array("message" => "Actualizada."));
-        }
+    } elseif ($method === 'DELETE') {
+        // Eliminar
+        // ON DELETE CASCADE en tablas relacionadas debería limpiarlo todo (credenciales, usuarios_organizaciones)
+        // Pero verificamos si hay restricciones manuales si no se configuró cascade.
+        // Asumiremos que la BD lo maneja o que queremos eliminar.
 
-    } elseif ($method == 'DELETE') {
-        // DELETE via POST method check or actual DELETE request
-        // PHP //input works for PUT/DELETE too usually
-        if (!empty($data->id)) {
-            // Desvincular usuarios primero? O dejar NULL? Mejor NULL
-            $updUsers = "UPDATE usuarios SET id_organizacion = NULL WHERE id_organizacion = :id";
-            $stmtUpd = $conn->prepare($updUsers);
-            $stmtUpd->bindParam(":id", $data->id);
-            $stmtUpd->execute();
+        // Primero eliminamos la relación para este usuario (aunque si borramos la org, se borra todo)
+        // Delete org
+        $query = "DELETE FROM organizaciones WHERE id = :id";
+        $stmt = $conn->prepare($query);
+        $stmt->bindParam(':id', $data->id);
 
-            // Borrar credenciales de esa org ?? O dejarlas NULL? Dejarlas NULL
-            $updCreds = "UPDATE credenciales SET id_organizacion = NULL WHERE id_organizacion = :id";
-            $stmtCreds = $conn->prepare($updCreds);
-            $stmtCreds->bindParam(":id", $data->id);
-            $stmtCreds->execute();
-
-            $query = "DELETE FROM organizaciones WHERE id=:id";
-            $stmt = $conn->prepare($query);
-            $stmt->bindParam(":id", $data->id);
-            $stmt->execute();
-            echo json_encode(array("message" => "Eliminada."));
+        if ($stmt->execute()) {
+            echo json_encode(["success" => true, "message" => "Organización eliminada"]);
+        } else {
+            throw new Exception("Error al eliminar");
         }
     }
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(array("message" => "Error: " . $e->getMessage()));
+    echo json_encode(["success" => false, "message" => $e->getMessage()]);
 }
 ?>

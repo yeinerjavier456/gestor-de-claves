@@ -8,9 +8,9 @@ header('Content-Type: application/json');
 
 try {
     // Obtener organizaciones asociadas al usuario actual
-    // Join con la tabla de organizaciones para obtener nombres
+    // Join con la tabla de organizaciones para obtener nombres e id_creador
     $query = "
-        SELECT o.id, o.nombre, o.descripcion 
+        SELECT o.id, o.nombre, o.descripcion, o.id_creador 
         FROM organizaciones o
         INNER JOIN usuarios_organizaciones uo ON o.id = uo.id_organizacion
         WHERE uo.id_usuario = :uid

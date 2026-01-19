@@ -1,9 +1,9 @@
 // frontend/src/components/CredentialForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getOrganizations } from '../services/api';
+import { getOrganizations, getUserOrgs } from '../services/api';
 
-const CredentialForm = ({ onAdd, onUpdate, userHasOrg, initialData, onCancel }) => {
+const CredentialForm = ({ onAdd, onUpdate, userHasOrg, initialData, onCancel, defaultOrgId }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
         plataforma: '',
@@ -20,8 +20,13 @@ const CredentialForm = ({ onAdd, onUpdate, userHasOrg, initialData, onCancel }) 
     const [orgs, setOrgs] = useState([]);
 
     useEffect(() => {
-        if (user && user.rol === 'superadmin') {
-            getOrganizations().then(setOrgs).catch(console.error);
+        // Cargar organizaciones: Todas si es superadmin, Própias si es usuario normal
+        if (user) {
+            if (user.rol === 'superadmin') {
+                getOrganizations().then(setOrgs).catch(console.error);
+            } else {
+                getUserOrgs().then(setOrgs).catch(console.error);
+            }
         }
 
         if (initialData) {
@@ -41,8 +46,11 @@ const CredentialForm = ({ onAdd, onUpdate, userHasOrg, initialData, onCancel }) 
             if (initialData.ip_servidor || initialData.ruta_almacenamiento || initialData.notas) {
                 setShowAdvanced(true);
             }
+        } else if (defaultOrgId) {
+            // Si es nueva y viene con defaultOrgId (scope)
+            setFormData(prev => ({ ...prev, id_organizacion: defaultOrgId, compartir: true }));
         }
-    }, [user, initialData]);
+    }, [user, initialData, defaultOrgId]);
 
     const handleChange = (e) => {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -129,22 +137,17 @@ const CredentialForm = ({ onAdd, onUpdate, userHasOrg, initialData, onCancel }) 
                     </div>
                 )}
 
-                {user && user.rol === 'superadmin' && (
-                    <div className="admin-options" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                        <label className="label" style={{ marginBottom: '0.5rem', display: 'block', color: 'var(--accent-color)' }}>Asignar a Organización (Opcional)</label>
+
+                {/* Selector de Organización para TODOS (si tienen orgs o es superadmin) */}
+                {(orgs.length > 0 || user?.rol === 'superadmin') && (
+                    <div className="org-selector" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                        <label className="label" style={{ marginBottom: '0.5rem', display: 'block', color: 'var(--accent-color)' }}>
+                            {user.rol === 'superadmin' ? 'Asignar a Organización (SuperAdmin)' : 'Guardar en Organización'}
+                        </label>
                         <select name="id_organizacion" value={formData.id_organizacion} onChange={handleChange} className="input-field" style={{ width: '100%' }}>
-                            <option value="">-- Personal / Sin Asignar --</option>
+                            <option value="">-- Personal (Solo yo) --</option>
                             {orgs.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
                         </select>
-                    </div>
-                )}
-
-                {userHasOrg && user.rol !== 'superadmin' && (
-                    <div className="checkbox-group">
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--accent-color)' }}>
-                            <input type="checkbox" name="compartir" checked={formData.compartir} onChange={handleChange} style={{ marginRight: '0.5rem', width: '20px', height: '20px' }} />
-                            Compartir con mi organización
-                        </label>
                     </div>
                 )}
 

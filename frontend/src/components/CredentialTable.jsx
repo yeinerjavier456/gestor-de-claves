@@ -118,7 +118,8 @@ const CredentialTable = ({ credentials, onDelete, currentUser, onEdit }) => { //
                             {selectedCred.notas && <DetailRow label="Notas" value={selectedCred.notas} pre />}
 
                             <div className="modal-footer">
-                                {(selectedCred.owner_id == currentUser.id || currentUser.rol === 'superadmin') && (
+                                {/* Verificamos id_usuario (backend) o owner_id (legacy) */}
+                                {((selectedCred.id_usuario || selectedCred.owner_id) == currentUser.id || currentUser.rol === 'superadmin') && (
                                     <>
                                         <button className="btn-primary" onClick={() => onEdit(selectedCred)} style={{ marginRight: '10px' }}>
                                             ✏️ Editar

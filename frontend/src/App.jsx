@@ -6,7 +6,16 @@ import ScopeSelector from './components/ScopeSelector';
 import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
 import Sidebar from './components/Sidebar';
-import { getCredentials, createCredential, updateCredential, deleteCredential } from './services/api';
+import OrgModal from './components/OrgModal'; // Importar Modal
+import {
+  getCredentials,
+  createCredential,
+  updateCredential,
+  deleteCredential,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization
+} from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 /**
@@ -21,6 +30,8 @@ const Dashboard = () => {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile toggle
+  const [showOrgModal, setShowOrgModal] = useState(false);
+  const [editingOrg, setEditingOrg] = useState(null);
 
   useEffect(() => {
     // Cargar credenciales SOLO si tenemos un scope definido y estamos en vista lista
@@ -112,6 +123,61 @@ const Dashboard = () => {
     }
   };
 
+  /* ----- ORGANIZATIONS LOGIC ----- */
+  const handleOpenCreateOrg = () => {
+    setEditingOrg(null);
+    setShowOrgModal(true);
+  };
+  const handleOpenEditOrg = (org) => {
+    setEditingOrg(org);
+    setShowOrgModal(true);
+  };
+  const handleSaveOrg = async (orgData) => {
+    try {
+      if (orgData.id) {
+        await updateOrganization(orgData);
+        Swal.fire('Actualizado', 'Organización actualizada', 'success');
+      } else {
+        await createOrganization(orgData);
+        Swal.fire('Creado', 'Organización creada exitosamente', 'success');
+      }
+      setShowOrgModal(false);
+      // Forzar recarga de orgs en ScopeSelector. 
+      // Truco: cambiar currentView momentáneamente o usar key en ScopeSelector
+      handleChangeView('list'); // Esto debería remontar ScopeSelector si estamos ahí
+      setScope(null); // Asegura refresco
+    } catch (error) {
+      Swal.fire('Error', error.message, 'error');
+    }
+  };
+  const handleDeleteOrg = async (id) => {
+    Swal.fire({
+      title: '¿Eliminar Organización?',
+      text: "Se borrará permanentemente. ¡Cuidado!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Sí, eliminar'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await deleteOrganization(id);
+          Swal.fire('Eliminado', 'La organización ha sido eliminada.', 'success');
+          setScope(null);
+          handleChangeView('list'); // Refrescar
+        } catch (error) {
+          Swal.fire('Error', error.message, 'error');
+        }
+      }
+    });
+  };
+
+  const handleQuickCreateCredential = (scopeObj) => {
+    setScope(scopeObj);
+    setEditingCredential(null);
+    setCurrentView('create');
+  };
+
   return (
     <div className="app-layout">
       {/* Sidebar */}
@@ -151,8 +217,11 @@ const Dashboard = () => {
                 )}
 
                 {scope && (
-                  <div className="stats-badge">
-                    {credentials.length} Registros
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <button className="btn-primary-sm" onClick={() => handleQuickCreateCredential(scope)}>+ Nueva Credencial</button>
+                    <div className="stats-badge">
+                      {credentials.length} Registros
+                    </div>
                   </div>
                 )}
               </div>
@@ -160,7 +229,14 @@ const Dashboard = () => {
               {loading ? <p>Cargando...</p> : (
                 <>
                   {!scope ? (
-                    <ScopeSelector onSelectScope={handleScopeSelect} user={user} />
+                    <ScopeSelector
+                      onSelectScope={handleScopeSelect}
+                      user={user}
+                      onCreateOrg={handleOpenCreateOrg}
+                      onEditOrg={handleOpenEditOrg}
+                      onDeleteOrg={handleDeleteOrg}
+                      onCreateCredential={handleQuickCreateCredential}
+                    />
                   ) : (
                     <CredentialTable
                       credentials={credentials}
@@ -185,6 +261,7 @@ const Dashboard = () => {
                 userHasOrg={!!user.id_organizacion || (scope?.type === 'org')}
                 initialData={editingCredential}
                 onCancel={() => handleChangeView('list')}
+                defaultOrgId={scope?.type === 'org' ? scope.id : ''}
               />
             </>
           )}
@@ -194,6 +271,14 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Org Modal */}
+      <OrgModal
+        isOpen={showOrgModal}
+        onClose={() => setShowOrgModal(false)}
+        onSave={handleSaveOrg}
+        initialData={editingOrg}
+      />
 
       <style>{`
             .app-layout {
@@ -225,6 +310,17 @@ const Dashboard = () => {
                  font-size: 0.9rem;
                  border: 1px solid rgba(255,255,255,0.1);
             }
+            .btn-primary-sm {
+                  background: var(--accent-color);
+                  border: none;
+                  color: var(--bg-dark);
+                  padding: 0.5rem 1rem;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: bold;
+                  transition: filter 0.2s;
+            }
+            .btn-primary-sm:hover { filter: brightness(1.2); }
 
             @media (max-width: 768px) {
                 .main-content {
