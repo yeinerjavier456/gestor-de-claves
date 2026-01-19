@@ -34,7 +34,9 @@ const CredentialTable = ({ credentials, onDelete, currentUser, onEdit }) => { //
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
-            confirmButtonText: 'Sí, borrar'
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, borrar',
+            cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
                 onDelete(id);
@@ -117,9 +119,14 @@ const CredentialTable = ({ credentials, onDelete, currentUser, onEdit }) => { //
 
                             <div className="modal-footer">
                                 {(selectedCred.owner_id == currentUser.id || currentUser.rol === 'superadmin') && (
-                                    <button className="btn-danger" onClick={() => handleDelete(selectedCred.id)}>
-                                        🗑️ Eliminar Credencial
-                                    </button>
+                                    <>
+                                        <button className="btn-primary" onClick={() => onEdit(selectedCred)} style={{ marginRight: '10px' }}>
+                                            ✏️ Editar
+                                        </button>
+                                        <button className="btn-danger" onClick={() => handleDelete(selectedCred.id)}>
+                                            🗑️ Eliminar Credencial
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>

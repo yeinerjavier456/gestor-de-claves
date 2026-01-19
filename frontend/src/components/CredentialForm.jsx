@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getOrganizations } from '../services/api';
 
-const CredentialForm = ({ onAdd, userHasOrg }) => {
+const CredentialForm = ({ onAdd, onUpdate, userHasOrg, initialData, onCancel }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
         plataforma: '',
@@ -23,7 +23,26 @@ const CredentialForm = ({ onAdd, userHasOrg }) => {
         if (user && user.rol === 'superadmin') {
             getOrganizations().then(setOrgs).catch(console.error);
         }
-    }, [user]);
+
+        if (initialData) {
+            setFormData({
+                id: initialData.id,
+                plataforma: initialData.plataforma,
+                url: initialData.url,
+                usuario: initialData.usuario,
+                password: initialData.password,
+                ip_servidor: initialData.ip_servidor || '',
+                ruta_almacenamiento: initialData.ruta_almacenamiento || '',
+                notas: initialData.notas || '',
+                compartir: !!initialData.id_organizacion,
+                id_organizacion: initialData.id_organizacion || ''
+            });
+
+            if (initialData.ip_servidor || initialData.ruta_almacenamiento || initialData.notas) {
+                setShowAdvanced(true);
+            }
+        }
+    }, [user, initialData]);
 
     const handleChange = (e) => {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -35,17 +54,21 @@ const CredentialForm = ({ onAdd, userHasOrg }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onAdd(formData);
-        setFormData({
-            plataforma: '', url: '', usuario: '', password: '',
-            ip_servidor: '', ruta_almacenamiento: '', notas: '',
-            compartir: false, id_organizacion: ''
-        });
+        if (initialData) {
+            onUpdate(formData);
+        } else {
+            onAdd(formData);
+            setFormData({
+                plataforma: '', url: '', usuario: '', password: '',
+                ip_servidor: '', ruta_almacenamiento: '', notas: '',
+                compartir: false, id_organizacion: ''
+            });
+        }
     };
 
     return (
         <div className="form-container">
-            <h2 className="form-title">Agregar Nueva Credencial</h2>
+            <h2 className="form-title">{initialData ? 'Editar Credencial' : 'Agregar Nueva Credencial'}</h2>
             <form onSubmit={handleSubmit}>
                 <div className="form-grid">
                     <div className="input-group">
@@ -126,8 +149,13 @@ const CredentialForm = ({ onAdd, userHasOrg }) => {
                 )}
 
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
-                    Guardar Credencial
+                    {initialData ? 'Actualizar Credencial' : 'Guardar Credencial'}
                 </button>
+                {initialData && (
+                    <button type="button" onClick={onCancel} className="btn-text" style={{ width: '100%', marginTop: '0.5rem', color: '#f87171' }}>
+                        Cancelar Edición
+                    </button>
+                )}
             </form>
 
             <style>{`

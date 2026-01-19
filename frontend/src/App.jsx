@@ -6,7 +6,7 @@ import ScopeSelector from './components/ScopeSelector';
 import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
 import Sidebar from './components/Sidebar';
-import { getCredentials, createCredential, deleteCredential } from './services/api';
+import { getCredentials, createCredential, updateCredential, deleteCredential } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 /**
@@ -17,6 +17,7 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const [currentView, setCurrentView] = useState('list'); // 'list', 'create', 'admin'
   const [scope, setScope] = useState(null); // null (selector), { type: 'personal' }, { type: 'org', id: X }
+  const [editingCredential, setEditingCredential] = useState(null); // Credencial siendo editada
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile toggle
@@ -47,10 +48,11 @@ const Dashboard = () => {
   const handleChangeView = (viewId) => {
     setCurrentView(viewId);
     if (viewId === 'list') {
-      // Si vuelve a "Mis Credenciales", tal vez quiera ver el selector de nuevo?
-      // O mantener el último scope. 
-      // Por usabilidad: Si hace clic en "Mis Credenciales" en el menú, reseteamos a selector.
+      setEditingCredential(null);
       setScope(null);
+    }
+    if (viewId === 'create' && currentView !== 'create') {
+      setEditingCredential(null);
     }
   };
 
@@ -64,7 +66,8 @@ const Dashboard = () => {
         timer: 1500,
         showConfirmButton: false
       });
-      setCurrentView('list'); // Volver a la lista después de crear
+      fetchCredentials(); // recargar
+      handleChangeView('list');
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -72,6 +75,31 @@ const Dashboard = () => {
         text: "Error al crear la credencial: " + (error.message || "Desconocido")
       });
     }
+  };
+
+  const handleUpdateCredential = async (updatedCredential) => {
+    try {
+      await updateCredential(updatedCredential);
+      Swal.fire({
+        icon: 'success',
+        title: '¡Actualizado!',
+        text: 'Credencial modificada exitosamente',
+        timer: 1500,
+        showConfirmButton: false
+      });
+      setEditingCredential(null);
+      // Actualizar lista local o refetch
+      setCredentials(prev => prev.map(c => c.id === updatedCredential.id ? { ...c, ...updatedCredential } : c));
+      fetchCredentials();
+      handleChangeView('list');
+    } catch (error) {
+      Swal.fire('Error', error.message, 'error');
+    }
+  };
+
+  const handleStartEdit = (credential) => {
+    setEditingCredential(credential);
+    setCurrentView('create');
   };
 
   const handleDeleteCredential = async (id) => {
@@ -138,6 +166,7 @@ const Dashboard = () => {
                       credentials={credentials}
                       onDelete={handleDeleteCredential}
                       currentUser={user}
+                      onEdit={handleStartEdit}
                     />
                   )}
                 </>
@@ -148,9 +177,15 @@ const Dashboard = () => {
           {currentView === 'create' && (
             <>
               <div className="view-header">
-                <h2>Nueva Credencial</h2>
+                <h2>{editingCredential ? 'Editar Credencial' : 'Nueva Credencial'}</h2>
               </div>
-              <CredentialForm onAdd={handleAddCredential} userHasOrg={!!user.id_organizacion} />
+              <CredentialForm
+                onAdd={handleAddCredential}
+                onUpdate={handleUpdateCredential}
+                userHasOrg={!!user.id_organizacion || (scope?.type === 'org')}
+                initialData={editingCredential}
+                onCancel={() => handleChangeView('list')}
+              />
             </>
           )}
 

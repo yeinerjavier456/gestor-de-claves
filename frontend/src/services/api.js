@@ -52,6 +52,16 @@ export const createCredential = async (data) => {
     return json;
 };
 
+export const updateCredential = async (data) => {
+    const res = await fetch(`${API_URL}/update.php`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    return json;
+};
+
 export const deleteCredential = async (id) => {
     const res = await fetch(`${API_URL}/delete.php`, {
         method: 'DELETE',
