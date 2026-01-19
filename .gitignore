@@ -1,0 +1,19 @@
+# Dependencias
+node_modules/
+vendor/
+
+# Construcción
+dist/
+build/
+
+# Entorno y Secretos
+.env
+backend/config.php
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/

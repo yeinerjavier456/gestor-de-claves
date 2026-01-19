@@ -1,0 +1,155 @@
+// frontend/src/components/CredentialForm.jsx
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getOrganizations } from '../services/api';
+
+const CredentialForm = ({ onAdd, userHasOrg }) => {
+    const { user } = useAuth();
+    const [formData, setFormData] = useState({
+        plataforma: '',
+        url: '',
+        usuario: '',
+        password: '',
+        ip_servidor: '',
+        ruta_almacenamiento: '',
+        notas: '',
+        compartir: false,
+        id_organizacion: ''
+    });
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [orgs, setOrgs] = useState([]);
+
+    useEffect(() => {
+        if (user && user.rol === 'superadmin') {
+            getOrganizations().then(setOrgs).catch(console.error);
+        }
+    }, [user]);
+
+    const handleChange = (e) => {
+        const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+        setFormData({
+            ...formData,
+            [e.target.name]: value
+        });
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onAdd(formData);
+        setFormData({
+            plataforma: '', url: '', usuario: '', password: '',
+            ip_servidor: '', ruta_almacenamiento: '', notas: '',
+            compartir: false, id_organizacion: ''
+        });
+    };
+
+    return (
+        <div className="form-container">
+            <h2 className="form-title">Agregar Nueva Credencial</h2>
+            <form onSubmit={handleSubmit}>
+                <div className="form-grid">
+                    <div className="input-group">
+                        <label className="label">Plataforma *</label>
+                        <input name="plataforma" value={formData.plataforma} onChange={handleChange} placeholder="Ej: Servidor Prod" className="input-field" required />
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">URL *</label>
+                        <input name="url" value={formData.url} onChange={handleChange} placeholder="Ej: 192.168.1.10 o midominio.com" className="input-field" required />
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Usuario / Correo *</label>
+                        <input name="usuario" value={formData.usuario} onChange={handleChange} placeholder="Ej: root" className="input-field" required />
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Contraseña *</label>
+                        <input name="password" value={formData.password} onChange={handleChange} placeholder="********" className="input-field" required />
+                    </div>
+                </div>
+
+                {/* Toggle para opciones avanzadas */}
+                <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+                    <button
+                        type="button"
+                        className="btn-text"
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                        style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}
+                    >
+                        {showAdvanced ? '▼ Ocultar Opciones Adicionales' : '▶ Ver Opciones Adicionales (IP, Rutas, Notas)'}
+                    </button>
+                </div>
+
+                {showAdvanced && (
+                    <div className="advanced-fields" style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                        <div className="input-group" style={{ marginBottom: '1rem' }}>
+                            <label className="label">IP de Servidor (Opcional)</label>
+                            <input name="ip_servidor" value={formData.ip_servidor} onChange={handleChange} placeholder="Ej: 10.0.0.5" className="input-field" />
+                        </div>
+                        <div className="input-group" style={{ marginBottom: '1rem' }}>
+                            <label className="label">Ruta Almacenamiento (Opcional)</label>
+                            <input name="ruta_almacenamiento" value={formData.ruta_almacenamiento} onChange={handleChange} placeholder="Ej: /var/www/html/proyecto" className="input-field" />
+                        </div>
+                        <div className="input-group">
+                            <label className="label">Notas Adicionales</label>
+                            <textarea
+                                name="notas"
+                                value={formData.notas}
+                                onChange={handleChange}
+                                placeholder="Instrucciones especiales, puertos, etc..."
+                                className="input-field"
+                                rows="3"
+                                style={{ resize: 'vertical' }}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {user && user.rol === 'superadmin' && (
+                    <div className="admin-options" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                        <label className="label" style={{ marginBottom: '0.5rem', display: 'block', color: 'var(--accent-color)' }}>Asignar a Organización (Opcional)</label>
+                        <select name="id_organizacion" value={formData.id_organizacion} onChange={handleChange} className="input-field" style={{ width: '100%' }}>
+                            <option value="">-- Personal / Sin Asignar --</option>
+                            {orgs.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                {userHasOrg && user.rol !== 'superadmin' && (
+                    <div className="checkbox-group">
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--accent-color)' }}>
+                            <input type="checkbox" name="compartir" checked={formData.compartir} onChange={handleChange} style={{ marginRight: '0.5rem', width: '20px', height: '20px' }} />
+                            Compartir con mi organización
+                        </label>
+                    </div>
+                )}
+
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
+                    Guardar Credencial
+                </button>
+            </form>
+
+            <style>{`
+        .form-container {
+          background-color: var(--card-bg);
+          backdrop-filter: blur(10px);
+          padding: 2rem;
+          border-radius: var(--radius-lg);
+          border: var(--glass-border);
+          max-width: 600px;
+          margin: 0 auto 3rem auto;
+          box-shadow: var(--shadow-lg);
+        }
+        .form-title { margin-bottom: 1.5rem; text-align: center; color: var(--text-primary); }
+        .form-grid { display: grid; gap: 0.5rem; }
+        @media (min-width: 640px) { .form-grid { grid-template-columns: 1fr 1fr; gap: 1.5rem; } }
+        .checkbox-group { margin-top: 1rem; margin-bottom: 0.5rem; }
+        .btn-text { background: none; border: none; cursor: pointer; padding: 0; }
+        .btn-text:hover { text-decoration: underline; }
+      `}</style>
+        </div>
+    );
+};
+
+export default CredentialForm;
